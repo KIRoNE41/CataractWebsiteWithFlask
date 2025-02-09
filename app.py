@@ -7,9 +7,9 @@ from ultralytics import YOLO
 app = Flask(__name__)
 
 # Initialize models
-model1 = YOLO("X:/NKWK/SET/ALL PROJECT/AI-EYES/Code/yolov11n-face.pt")
-model2 = YOLO('X:/NKWK/SET/ALL PROJECT/AI-EYES/runs/detect/EYE3/weights/best.pt')
-model3 = YOLO("X:/NKWK/SET/ALL PROJECT/AI-EYES/Code/CataractOD.pt")
+model1 = YOLO("model/FaceOD.pt")
+model2 = YOLO('model/EyeOD.pt')
+model3 = YOLO("model/CataractOD.pt")
 
 UPLOAD_FOLDER = 'x:/NKWK/SET/ALL PROJECT/AI-EYES/Code/Flask/static/uploads'
 RESULT_FOLDER = 'x:/NKWK/SET/ALL PROJECT/AI-EYES/Code/Flask/static/results'
