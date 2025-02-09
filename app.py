@@ -3,6 +3,9 @@ import os, shutil
 import cv2
 from PIL import Image
 from ultralytics import YOLO
+import torch
+
+torch.set_grad_enabled(False)  # ปิดการใช้ Gradient เพื่อประหยัด RAM
 
 app = Flask(__name__)
 
