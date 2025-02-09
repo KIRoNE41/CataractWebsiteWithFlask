@@ -1,27 +1,32 @@
-from flask import Flask, render_template, request, send_file
+from fastapi import FastAPI, File, UploadFile, Form
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.templating import Jinja2Templates
 import os, shutil
 import cv2
 from PIL import Image
 from ultralytics import YOLO
 import torch
+from io import BytesIO
+from starlette.requests import Request
 
 torch.set_grad_enabled(False)  # ปิดการใช้ Gradient เพื่อประหยัด RAM
 
-app = Flask(__name__)
+app = FastAPI()
 
 # Initialize models
 model1 = YOLO("model/FaceOD.pt")
 model2 = YOLO('model/EyeOD.pt')
 model3 = YOLO("model/CataractOD.pt")
 
-UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static','uploads')
-RESULT_FOLDER = os.path.join(os.getcwd(), 'static','results')
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')
+RESULT_FOLDER = os.path.join(os.getcwd(), 'static', 'results')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
 global diagnosis_dict
-diagnosis_dict ={0:'ไม่พบเจอดวงตา',
-                 1:'ไม่พบเจอดวงตา'}
+diagnosis_dict = {0: 'ไม่พบเจอดวงตา', 1: 'ไม่พบเจอดวงตา'}
+
+templates = Jinja2Templates(directory="templates")
 
 def reDIR():
     shutil.rmtree(RESULT_FOLDER)
@@ -43,7 +48,6 @@ def cataract_detect(image_input, num):
         im_rgb = Image.fromarray(im_bgr[..., ::-1]) 
 
         for c in r.boxes.cls:
-            # Assuming "Cataract" corresponds to a particular class label in the model
             if names[int(c)] == "Cataract":
                 diagnosis = 'ดวงตาเป็นโรคต้อกระจก'  # Update diagnosis if Cataract is detected
             if names[int(c)] == "Normal":
@@ -60,7 +64,6 @@ def cataract_detect(image_input, num):
 
     return diagnosis  # Return the diagnosis
 
-# Modify the face_detect and eye_detect functions to handle diagnosis
 def face_detect(image_input):
     results = model1(image_input)
     names = model1.names
@@ -77,7 +80,7 @@ def face_detect(image_input):
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = box
             img = image_input[int(y1):int(y2), int(x1):int(x2)]
-            cv2.imwrite(RESULT_FOLDER+'/ultralytics_crop_face_' + str(i) + '.jpg', img)
+            cv2.imwrite(RESULT_FOLDER + '/ultralytics_crop_face_' + str(i) + '.jpg', img)
         r.save(filename=f"{RESULT_FOLDER}/results_face.jpg")
     eye_detect(img)
 
@@ -100,76 +103,65 @@ def eye_detect(image_input):
             img = image_input[int(y1):int(y2), int(x1):int(x2)]
             img = cv2.resize(img, (int(img.shape[1] * 10), int(img.shape[0] * 10)))
             cv2.imwrite(RESULT_FOLDER + '/ultralytics_crop_eye_' + str(i) + '.jpg', img)
-            cataract_detect(img,i)  # Get diagnosis here
+            cataract_detect(img, i)  # Get diagnosis here
         r.save(filename=f"{RESULT_FOLDER}/results_eye.jpg")
 
-# Route for index page and form to upload image
-@app.route('/')
-def index():
+@app.get("/", response_class=HTMLResponse)
+async def index(request: Request):
     reDIR()
-    return render_template('index.html')
+    return templates.TemplateResponse("index.html", {"request": request})
 
-# Route to handle the image upload and processing
-@app.route('/upload', methods=['POST'])
-def upload():
+@app.post("/upload", response_class=HTMLResponse)
+async def upload(file: UploadFile = File(...), request: Request):
     global diagnosis_dict
-    if 'file' not in request.files:
-        return 'No file part', 400
-
-    file = request.files['file']
     if file.filename == '':
         return 'No selected file', 400
-    
-    # Save the uploaded image
-    filepath = os.path.join(UPLOAD_FOLDER, "captured_image.jpg")
-    file.save(filepath)
 
-    # Read the image
+    filepath = os.path.join(UPLOAD_FOLDER, "captured_image.jpg")
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
     source = cv2.imread(filepath)
     face_detect(source)
-    print(str(diagnosis_dict.get(0)))
-    return render_template('index.html', 
-                           img="results_eye.jpg", 
-                           img2="results0.jpg", 
-                           img3="results1.jpg",
-                           diagnosis1=str(diagnosis_dict.get(0)), 
-                           diagnosis2=str(diagnosis_dict.get(1)))  # Modify as needed based on detection results
+    return templates.TemplateResponse("index.html", 
+                                      {"request": request,
+                                       "img": "results_eye.jpg", 
+                                       "img2": "results0.jpg", 
+                                       "img3": "results1.jpg",
+                                       "diagnosis1": str(diagnosis_dict.get(0)), 
+                                       "diagnosis2": str(diagnosis_dict.get(1))})
 
-@app.route('/capture', methods=['POST'])
-def capture():
+@app.post("/capture", response_class=HTMLResponse)
+async def capture(file: UploadFile = File(...), request: Request):
     global diagnosis_dict
-    if 'file' not in request.files:
-        return 'No file part', 400
-
-    file = request.files['file']
     if file.filename == '':
         return 'No selected file', 400
-    
-    # Save the uploaded image
-    filepath = os.path.join(UPLOAD_FOLDER, "captured_image.jpg")
-    file.save(filepath)
 
-    # Read the image
+    filepath = os.path.join(UPLOAD_FOLDER, "captured_image.jpg")
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
     source = cv2.imread(filepath)
     face_detect(source)
-    return render_template('index.html', 
-                           img="results_eye.jpg", 
-                           img2="results0.jpg", 
-                           img3="results1.jpg",
-                           diagnosis1=str(diagnosis_dict.get(0)), 
-                           diagnosis2=str(diagnosis_dict.get(1)))
+    return templates.TemplateResponse("index.html", 
+                                      {"request": request, 
+                                       "img": "results_eye.jpg", 
+                                       "img2": "results0.jpg", 
+                                       "img3": "results1.jpg",
+                                       "diagnosis1": str(diagnosis_dict.get(0)), 
+                                       "diagnosis2": str(diagnosis_dict.get(1))})
 
-@app.route('/result')
-def view_image():
+@app.get("/result", response_class=HTMLResponse)
+async def view_image(request: Request):
     global diagnosis_dict
-    # Return the result image and diagnosis
-    return render_template('index.html', 
-                           img="results_eye.jpg", 
-                           img2="results0.jpg", 
-                           img3="results1.jpg",
-                           diagnosis1=str(diagnosis_dict.get(0)), 
-                           diagnosis2=str(diagnosis_dict.get(1)))  # Modify as needed based on detection results
-
+    return templates.TemplateResponse("index.html", 
+                                      {"request": request, 
+                                       "img": "results_eye.jpg", 
+                                       "img2": "results0.jpg", 
+                                       "img3": "results1.jpg",
+                                       "diagnosis1": str(diagnosis_dict.get(0)), 
+                                       "diagnosis2": str(diagnosis_dict.get(1))})
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
