@@ -11,8 +11,8 @@ model1 = YOLO("model/FaceOD.pt")
 model2 = YOLO('model/EyeOD.pt')
 model3 = YOLO("model/CataractOD.pt")
 
-UPLOAD_FOLDER = 'x:/NKWK/SET/ALL PROJECT/AI-EYES/Code/Flask/static/uploads'
-RESULT_FOLDER = 'x:/NKWK/SET/ALL PROJECT/AI-EYES/Code/Flask/static/results'
+UPLOAD_FOLDER = '/static/uploads'
+RESULT_FOLDER = '/static/results'
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
@@ -104,7 +104,7 @@ def eye_detect(image_input):
 @app.route('/')
 def index():
     reDIR()
-    return render_template('index.html')
+    return render_template('Templates/index.html')
 
 # Route to handle the image upload and processing
 @app.route('/upload', methods=['POST'])
@@ -125,7 +125,7 @@ def upload():
     source = cv2.imread(filepath)
     face_detect(source)
     print(str(diagnosis_dict.get(0)))
-    return render_template('index.html', 
+    return render_template('Templates/index.html', 
                            img="results_eye.jpg", 
                            img2="results0.jpg", 
                            img3="results1.jpg",
@@ -149,7 +149,7 @@ def capture():
     # Read the image
     source = cv2.imread(filepath)
     face_detect(source)
-    return render_template('index.html', 
+    return render_template('Templates/index.html', 
                            img="results_eye.jpg", 
                            img2="results0.jpg", 
                            img3="results1.jpg",
@@ -160,7 +160,7 @@ def capture():
 def view_image():
     global diagnosis_dict
     # Return the result image and diagnosis
-    return render_template('index.html', 
+    return render_template('Templates/index.html', 
                            img="results_eye.jpg", 
                            img2="results0.jpg", 
                            img3="results1.jpg",
