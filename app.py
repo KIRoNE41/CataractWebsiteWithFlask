@@ -1,5 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi import Request
 from fastapi.templating import Jinja2Templates
 import os, shutil
 import cv2
@@ -12,6 +14,7 @@ from starlette.requests import Request
 torch.set_grad_enabled(False)  # ปิดการใช้ Gradient เพื่อประหยัด RAM
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Initialize models
 model1 = YOLO("model/FaceOD.pt")
