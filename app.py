@@ -11,8 +11,8 @@ model1 = YOLO("model/FaceOD.pt")
 model2 = YOLO('model/EyeOD.pt')
 model3 = YOLO("model/CataractOD.pt")
 
-UPLOAD_FOLDER = '/static/uploads'
-RESULT_FOLDER = '/static/results'
+UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static','uploads')
+RESULT_FOLDER = os.path.join(os.getcwd(), 'static','results')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESULT_FOLDER, exist_ok=True)
