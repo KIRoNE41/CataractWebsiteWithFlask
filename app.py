@@ -112,7 +112,7 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/upload", response_class=HTMLResponse)
-async def upload(file: UploadFile = File(...), request: Request):
+async def upload(request: Request, file: UploadFile = File(...)):
     global diagnosis_dict
     if file.filename == '':
         return 'No selected file', 400
@@ -132,7 +132,7 @@ async def upload(file: UploadFile = File(...), request: Request):
                                        "diagnosis2": str(diagnosis_dict.get(1))})
 
 @app.post("/capture", response_class=HTMLResponse)
-async def capture(file: UploadFile = File(...), request: Request):
+async def capture(request: Request, file: UploadFile = File(...)):
     global diagnosis_dict
     if file.filename == '':
         return 'No selected file', 400
