@@ -21,6 +21,8 @@ model1 = YOLO("model/FaceOD.pt")
 model2 = YOLO('model/EyeOD.pt')
 model3 = YOLO("model/CataractOD.pt")
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 UPLOAD_FOLDER = os.path.join(os.getcwd(), 'static', 'uploads')
 RESULT_FOLDER = os.path.join(os.getcwd(), 'static', 'results')
 
@@ -29,7 +31,6 @@ os.makedirs(RESULT_FOLDER, exist_ok=True)
 global diagnosis_dict
 diagnosis_dict = {0: 'ไม่พบเจอดวงตา', 1: 'ไม่พบเจอดวงตา'}
 
-templates = Jinja2Templates(directory="templates")
 
 def reDIR():
     shutil.rmtree(RESULT_FOLDER)
