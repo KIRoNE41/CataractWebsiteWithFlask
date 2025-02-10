@@ -5,21 +5,28 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 import os, shutil
 import cv2
-from PIL import Image
-from ultralytics import YOLO
+import numpy as np
+import onnx
 import torch
+from PIL import Image
 from io import BytesIO
 from starlette.requests import Request
 
-torch.set_grad_enabled(False)  # ปิดการใช้ Gradient เพื่อประหยัด RAM
+torch.set_grad_enabled(False)  # Disable gradients to save memory
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Initialize models
-model1 = YOLO("model/FaceOD.pt")
-model2 = YOLO('model/EyeOD.pt')
-model3 = YOLO("model/CataractOD.pt")
+# Load ONNX models
+face_model = onnx.load("model/FaceOD.onnx")
+eye_model = onnx.load("model/EyeOD.onnx")
+cataract_model = onnx.load("model/CataractOD.onnx")
+
+# Create a session for each model
+import onnxruntime
+face_session = onnxruntime.InferenceSession(face_model)
+eye_session = onnxruntime.InferenceSession(eye_model)
+cataract_session = onnxruntime.InferenceSession(cataract_model)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -40,80 +47,67 @@ def reDIR():
     os.makedirs(RESULT_FOLDER, exist_ok=True)
 
 
+def preprocess_image(image_input):
+    # Preprocessing image for ONNX model
+    image = cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB)  # Convert to RGB
+    image = cv2.resize(image, (224, 224))  # Resize for model input
+    image = np.transpose(image, (2, 0, 1))  # Convert to CHW format
+    image = image.astype(np.float32)  # Ensure float32
+    image /= 255.0  # Normalize the image to 0-1 range
+    image = np.expand_dims(image, axis=0)  # Add batch dimension
+    return image
+
+
+def run_onnx_model(model_session, image):
+    input_name = model_session.get_inputs()[0].name
+    output_name = model_session.get_outputs()[0].name
+    result = model_session.run([output_name], {input_name: image})
+    return result
+
+
 def cataract_detect(image_input, num):
     global diagnosis_dict
-    results = model3.predict(image_input, conf=0.5)
-    names = model3.names
-    boxes = results[0].boxes.xyxy.tolist()
-    diagnosis = 'ไม่สามารถตรวจจับได้'  # Default diagnosis
+    image = preprocess_image(image_input)  # Prepare image for ONNX model
+    results = run_onnx_model(cataract_session, image)  # Run cataract model
 
-    for r in results:
-        im_bgr = r.plot()
-        im_rgb = Image.fromarray(im_bgr[..., ::-1]) 
+    # Extract probabilities for each class
+    prob_normal = results[0][0]  # Probability of "Normal"
+    prob_cataract = results[0][1]  # Probability of "Cataract"
 
-        for c in r.boxes.cls:
-            if names[int(c)] == "Cataract":
-                diagnosis = 'ดวงตาเป็นโรคต้อกระจก'  # Update diagnosis if Cataract is detected
-            if names[int(c)] == "Normal":
-                diagnosis = 'ดวงตาปกติ'  # Update diagnosis if Cataract is detected
-              
+    # Determine the diagnosis based on higher probability
+    if prob_cataract > prob_normal:
+        diagnosis = "ดวงตาเป็นโรคต้อกระจก"
+    else:
+        diagnosis = "ดวงตาปกติ"
 
-        # Save and process the image
-        for i, box in enumerate(boxes):
-            x1, y1, x2, y2 = box
-            img = image_input[int(y1):int(y2), int(x1):int(x2)]
-            cv2.imwrite(f'{RESULT_FOLDER}/ultralytics_crop_scan_{num}.jpg', img)
-        diagnosis_dict[num] = diagnosis
-        r.save(filename=f"{RESULT_FOLDER}/results{num}.jpg")
+    # Save the diagnosis in a dictionary
+    diagnosis_dict[num] = diagnosis  
+    cv2.imwrite(f'{RESULT_FOLDER}/cataract_{num}.jpg', image_input)  # Save image
+    
+    return diagnosis
 
-    return diagnosis  # Return the diagnosis
 
 def face_detect(image_input):
-    results = model1(image_input)
-    names = model1.names
-    boxes = results[0].boxes.xyxy.tolist()
+    results = run_onnx_model(face_session, preprocess_image(image_input))
+    # Assuming the model detects faces and provides bounding boxes
 
-    for r in results:
-        im_bgr = r.plot()
-        im_rgb = Image.fromarray(im_bgr[..., ::-1])
-        img = image_input
+    # Process the detected faces and perform further analysis on eyes
+    eye_detect(image_input)
 
-        for c3 in r.boxes.cls:
-            print(names[int(c3)])
-
-        for i, box in enumerate(boxes):
-            x1, y1, x2, y2 = box
-            img = image_input[int(y1):int(y2), int(x1):int(x2)]
-            cv2.imwrite(RESULT_FOLDER + '/ultralytics_crop_face_' + str(i) + '.jpg', img)
-        r.save(filename=f"{RESULT_FOLDER}/results_face.jpg")
-    eye_detect(img)
 
 def eye_detect(image_input):
     global eye_num
-    results = model2(image_input)
-    names = model2.names
-    boxes = results[0].boxes.xyxy.tolist()
+    results = run_onnx_model(eye_session, preprocess_image(image_input))
+    # Assuming the model detects eyes and provides bounding boxes
 
-    for r in results:
-        im_bgr = r.plot()
-        im_rgb = Image.fromarray(im_bgr[..., ::-1])
+    cataract_detect(image_input, eye_num)  # Get diagnosis for each eye
 
-        for c in r.boxes.cls:
-            print(names[int(c)])
-
-        for i, box in enumerate(boxes):
-            eye_num = i
-            x1, y1, x2, y2 = box
-            img = image_input[int(y1):int(y2), int(x1):int(x2)]
-            img = cv2.resize(img, (int(img.shape[1] * 10), int(img.shape[0] * 10)))
-            cv2.imwrite(RESULT_FOLDER + '/ultralytics_crop_eye_' + str(i) + '.jpg', img)
-            cataract_detect(img, i)  # Get diagnosis here
-        r.save(filename=f"{RESULT_FOLDER}/results_eye.jpg")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     reDIR()
     return templates.TemplateResponse("index.html", {"request": request})
+
 
 @app.post("/upload", response_class=HTMLResponse)
 async def upload(request: Request, file: UploadFile = File(...)):
@@ -135,6 +129,7 @@ async def upload(request: Request, file: UploadFile = File(...)):
                                        "diagnosis1": str(diagnosis_dict.get(0)), 
                                        "diagnosis2": str(diagnosis_dict.get(1))})
 
+
 @app.post("/capture", response_class=HTMLResponse)
 async def capture(request: Request, file: UploadFile = File(...)):
     global diagnosis_dict
@@ -155,6 +150,7 @@ async def capture(request: Request, file: UploadFile = File(...)):
                                        "diagnosis1": str(diagnosis_dict.get(0)), 
                                        "diagnosis2": str(diagnosis_dict.get(1))})
 
+
 @app.get("/result", response_class=HTMLResponse)
 async def view_image(request: Request):
     global diagnosis_dict
@@ -165,6 +161,7 @@ async def view_image(request: Request):
                                        "img3": "results1.jpg",
                                        "diagnosis1": str(diagnosis_dict.get(0)), 
                                        "diagnosis2": str(diagnosis_dict.get(1))})
+
 
 if __name__ == '__main__':
     import uvicorn
