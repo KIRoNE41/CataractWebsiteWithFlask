@@ -163,6 +163,6 @@ async def view_image(request: Request):
                                        "diagnosis2": str(diagnosis_dict.get(1))})
 
 
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8000))  # Get PORT from environment, default to 8000
+    uvicorn.run(app, host="0.0.0.0", port=port)
