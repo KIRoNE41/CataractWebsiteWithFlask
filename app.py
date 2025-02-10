@@ -48,15 +48,11 @@ def reDIR():
     os.makedirs(RESULT_FOLDER, exist_ok=True)
 
 
-def preprocess_image(image_input):
-    # Preprocessing image for ONNX model
-    image = cv2.cvtColor(image_input, cv2.COLOR_BGR2RGB)  # Convert to RGB
-    image = cv2.resize(image, (224, 224))  # Resize for model input
-    image = np.transpose(image, (2, 0, 1))  # Convert to CHW format
-    image = image.astype(np.float32)  # Ensure float32
-    image /= 255.0  # Normalize the image to 0-1 range
-    image = np.expand_dims(image, axis=0)  # Add batch dimension
-    return image
+def preprocess_image(image):
+    """Fast image preprocessing for ONNX model."""
+    blob = cv2.dnn.blobFromImage(image, scalefactor=1/255.0, size=(224, 224), swapRB=True, crop=False)
+    return blob
+
 
 
 def run_onnx_model(model_session, image):
