@@ -111,12 +111,12 @@
             <br>
             <p>ดวงตาดวงที่1: {{ diagnosis1 }}</p>
             <p>ดวงตาดวงที่2: {{ diagnosis2 }}</p>
-            <img src="{{ url_for('static', filename='results/' + img) }}">
+            <img src="{{ url_for('static', path='results/' + img) }}">
             <h2>ใบหน้าที่ตรวจจับดวงตา</h2>
             <br>
-            <img src="{{ url_for('static', filename='results/' + img2) }}">
+            <img src="{{ url_for('static', path='results/' + img2) }}">
             <h2>ดวงตาดวงที่1</h2>
-            <img src="{{ url_for('static', filename='results/' + img3) }}">
+            <img src="{{ url_for('static', path='results/' + img3) }}">
             <h2>ดวงตาดวงที่2</h2>
 
         </div>
@@ -124,7 +124,7 @@
         {% else %}
         
         <h2>อัปโหลดหรือถ่ายรูปภาพเพื่อทำการวินิฉัย</h2>
-        <img src="{{ url_for('static', filename='source/6.png')}}" alt="รูปภาพตัวอย่าง">
+        <img src="{{ url_for('static', path='source/6.png')}}" alt="รูปภาพตัวอย่าง">
         <p>รูปภาพตัวอย่าง</p>
 
         <div id="input">
