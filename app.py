@@ -24,9 +24,10 @@ cataract_model = onnx.load("model/CataractOD.onnx")
 
 # Create a session for each model
 import onnxruntime
-face_session = onnxruntime.InferenceSession(face_model,providers=["CPUExecutionProvider"])
-eye_session = onnxruntime.InferenceSession(eye_model,providers=["CPUExecutionProvider"])
-cataract_session = onnxruntime.InferenceSession(cataract_model,providers=["CPUExecutionProvider"])
+providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+face_session = onnxruntime.InferenceSession(face_model,providers=providers)
+eye_session = onnxruntime.InferenceSession(eye_model,providers=providers)
+cataract_session = onnxruntime.InferenceSession(cataract_model,providers=providers)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
