@@ -12,3 +12,4 @@ uwsgi
 fastapi
 uvicorn
 python-multipart
+onnx
